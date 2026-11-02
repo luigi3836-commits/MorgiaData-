@@ -1,0 +1,3105 @@
+<!DOCTYPE html>
+<html lang="it">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>MorgiaData - Dashboard V18 & Controllo Qualità</title>
+    <!-- Caricamento robusto di Tesseract.js -->
+    <script src="https://cdn.jsdelivr.net/npm/tesseract.js@5.0.3/dist/tesseract.min.js"></script>
+    <style>
+      :root {
+        --border-color: #111;
+        --font-a4: "Times New Roman", Times, serif;
+        --font-ui: "Inter", -apple-system, BlinkMacSystemFont, "Segoe UI",
+          Roboto, sans-serif;
+
+        /* Palette Schermata di Login (Dark Glassmorphism) */
+        --morgia-green: #4caf50;
+        --morgia-green-dark: #2e7d32;
+        --morgia-gold: #f6b23c;
+
+        --bg-login-gradient: radial-gradient(
+          circle at top right,
+          #1a2a1c 0%,
+          #111111 55%,
+          #0a0d0b 100%
+        );
+        --glass-surface: rgba(255, 255, 255, 0.03);
+        --glass-border: rgba(255, 255, 255, 0.08);
+        --glass-border-highlight: rgba(76, 175, 80, 0.35);
+        --text-light: #f3f6f4;
+        --text-dim: #9aa89d;
+      }
+
+      * {
+        box-sizing: border-box;
+      }
+
+      body {
+        font-family: var(--font-ui);
+        background: var(--bg-login-gradient);
+        background-attachment: fixed;
+        margin: 0;
+        padding: 0;
+        color: var(--text-light);
+        min-height: 100vh;
+      }
+
+      /* --- SCHERMATA LOGIN GLASSMORPHISM --- */
+      #login-screen {
+        position: fixed;
+        top: 0;
+        left: 0;
+        width: 100%;
+        height: 100%;
+        background: var(--bg-login-gradient);
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        z-index: 9999;
+        transition: opacity 0.6s ease, visibility 0.6s;
+      }
+
+      .glass-panel {
+        background: rgba(255, 255, 255, 0.03);
+        backdrop-filter: blur(20px);
+        -webkit-backdrop-filter: blur(20px);
+        border: 1px solid rgba(255, 255, 255, 0.08);
+        border-radius: 32px;
+        padding: 48px 36px;
+        width: 90%;
+        max-width: 420px;
+        box-shadow: 0 24px 48px rgba(0, 0, 0, 0.6);
+        color: white;
+      }
+
+      .input-group {
+        margin-bottom: 24px;
+      }
+
+      .input-group label {
+        display: block;
+        font-size: 12px;
+        margin-bottom: 10px;
+        color: #aaa;
+        text-transform: uppercase;
+        letter-spacing: 1.5px;
+        font-weight: 600;
+      }
+
+      .glass-input {
+        width: 100%;
+        padding: 16px 18px;
+        background: rgba(0, 0, 0, 0.4);
+        border: 1px solid rgba(255, 255, 255, 0.1);
+        border-radius: 16px;
+        color: white;
+        font-size: 15px;
+        outline: none;
+        transition: all 0.3s ease;
+        font-family: inherit;
+      }
+
+      .glass-input:focus {
+        border-color: var(--morgia-green);
+        box-shadow: 0 0 16px rgba(76, 175, 80, 0.25);
+        background: rgba(0, 0, 0, 0.6);
+      }
+
+      .btn-login {
+        width: 100%;
+        padding: 16px;
+        background: var(--morgia-green);
+        color: white;
+        border: none;
+        border-radius: 16px;
+        font-size: 16px;
+        font-weight: 800;
+        cursor: pointer;
+        margin-top: 10px;
+        transition: all 0.3s ease;
+        text-transform: uppercase;
+        letter-spacing: 1.5px;
+      }
+
+      .btn-login:hover {
+        background: #3e8e41;
+        transform: translateY(-2px);
+        box-shadow: 0 8px 24px rgba(76, 175, 80, 0.4);
+      }
+
+      #login-error {
+        color: #ff5252;
+        font-size: 13px;
+        text-align: center;
+        margin-top: 15px;
+        display: none;
+        font-weight: 600;
+      }
+
+      /* --- DASHBOARD POST-LOGIN --- */
+      #app-content {
+        display: none;
+        opacity: 0;
+        transform: translateY(20px);
+        transition: opacity 0.7s cubic-bezier(0.16, 1, 0.3, 1),
+          transform 0.7s cubic-bezier(0.16, 1, 0.3, 1);
+        min-height: 100vh;
+        padding: 32px 32px 40px 116px;
+        position: relative;
+      }
+
+      #app-content.visible {
+        opacity: 1;
+        transform: translateY(0);
+      }
+
+      /* Sidebar flottante verticale permanente */
+      .v18-sidebar {
+        position: fixed;
+        left: 24px;
+        top: 32px;
+        bottom: 32px;
+        width: 72px;
+        background: rgba(15, 22, 16, 0.75);
+        backdrop-filter: blur(24px);
+        -webkit-backdrop-filter: blur(24px);
+        border-radius: 999px;
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        justify-content: flex-start;
+        padding: 24px 0;
+        box-shadow: 0 24px 48px rgba(0, 0, 0, 0.5);
+        border: 1px solid var(--glass-border);
+        z-index: 1000;
+      }
+
+      .sidebar-brand-container {
+        margin-bottom: 32px;
+      }
+
+      .sidebar-brand {
+        width: 48px;
+        height: 48px;
+        border-radius: 50%;
+        background: rgba(255, 255, 255, 0.05);
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-weight: 900;
+        font-size: 18px;
+        letter-spacing: -1px;
+        border: 1px solid rgba(255, 255, 255, 0.15);
+        cursor: pointer;
+        transition: transform 0.3s ease;
+        overflow: hidden;
+      }
+      .sidebar-brand:hover {
+        transform: scale(1.05);
+      }
+
+      .sidebar-nav {
+        display: flex;
+        flex-direction: column;
+        gap: 16px;
+        align-items: center;
+        background: rgba(255, 255, 255, 0.02);
+        padding: 10px;
+        border-radius: 999px;
+      }
+
+      .nav-btn {
+        width: 48px;
+        height: 48px;
+        border-radius: 50%;
+        border: none;
+        background: transparent;
+        color: var(--text-dim);
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        cursor: pointer;
+        transition: all 0.3s cubic-bezier(0.16, 1, 0.3, 1);
+        position: relative;
+      }
+
+      .nav-btn svg {
+        width: 22px;
+        height: 22px;
+        stroke-width: 2;
+      }
+
+      .nav-btn:hover {
+        color: #fff;
+        background: rgba(255, 255, 255, 0.08);
+      }
+
+      .nav-btn.active {
+        background: var(--morgia-green);
+        color: #fff;
+        box-shadow: 0 8px 24px rgba(76, 175, 80, 0.4);
+      }
+
+      .nav-btn::after {
+        content: attr(data-tooltip);
+        position: absolute;
+        left: 68px;
+        background: #121a14;
+        border: 1px solid var(--glass-border);
+        color: #fff;
+        font-size: 13px;
+        font-weight: 600;
+        padding: 8px 14px;
+        border-radius: 12px;
+        white-space: nowrap;
+        opacity: 0;
+        pointer-events: none;
+        transform: translateX(-10px);
+        transition: all 0.3s cubic-bezier(0.16, 1, 0.3, 1);
+        box-shadow: 0 8px 24px rgba(0, 0, 0, 0.4);
+        z-index: 10;
+      }
+
+      .nav-btn:hover::after {
+        opacity: 1;
+        transform: translateX(0);
+      }
+
+      .sidebar-footer {
+        margin-top: auto;
+      }
+
+      .dashboard-container {
+        max-width: 1440px;
+        margin: 0 auto;
+      }
+
+      /* --- GESTIONE VISTE (TABS) --- */
+      .view-section {
+        display: none;
+        opacity: 0;
+        animation: fadeInView 0.5s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+      }
+
+      .view-section.active {
+        display: block;
+      }
+
+      @keyframes fadeInView {
+        from {
+          opacity: 0;
+          transform: translateY(15px);
+        }
+        to {
+          opacity: 1;
+          transform: translateY(0);
+        }
+      }
+
+      /* Widget Calendario Settimanale */
+      .v18-week-card {
+        background: var(--glass-surface);
+        backdrop-filter: blur(24px);
+        -webkit-backdrop-filter: blur(24px);
+        border: 1px solid var(--glass-border);
+        border-radius: 36px;
+        padding: 32px;
+        display: flex;
+        flex-direction: column;
+        justify-content: space-between;
+        box-shadow: 0 24px 48px rgba(0, 0, 0, 0.3);
+        max-width: 1200px;
+        margin: 0 auto;
+      }
+
+      .week-card-header {
+        display: flex;
+        justify-content: space-between;
+        align-items: flex-start;
+        margin-bottom: 20px;
+      }
+
+      .week-card-title {
+        font-size: 22px;
+        font-weight: 800;
+        color: #fff;
+        text-transform: capitalize;
+        margin: 0 0 4px 0;
+        letter-spacing: -0.5px;
+      }
+
+      .week-card-sub {
+        font-size: 13px;
+        color: var(--text-dim);
+      }
+
+      .v18-week-strip {
+        display: grid;
+        grid-template-columns: repeat(7, 1fr);
+        gap: 10px;
+      }
+
+      .v18-day-pill {
+        background: rgba(255, 255, 255, 0.03);
+        border: 1px solid rgba(255, 255, 255, 0.06);
+        border-radius: 999px;
+        padding: 14px 6px 10px 6px;
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        gap: 10px;
+        cursor: pointer;
+        transition: all 0.3s cubic-bezier(0.16, 1, 0.3, 1);
+        position: relative;
+      }
+
+      .v18-day-pill:hover {
+        border-color: var(--morgia-green);
+        transform: translateY(-4px);
+        background: rgba(76, 175, 80, 0.1);
+        box-shadow: 0 8px 24px rgba(76, 175, 80, 0.2);
+      }
+
+      .v18-day-pill .w-name {
+        font-size: 12px;
+        font-weight: 700;
+        color: var(--text-dim);
+      }
+
+      .v18-day-pill .w-num {
+        width: 36px;
+        height: 36px;
+        border-radius: 50%;
+        background: rgba(0, 0, 0, 0.4);
+        color: #fff;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-size: 14px;
+        font-weight: 800;
+        transition: all 0.3s ease;
+      }
+
+      .v18-day-pill.active-pill {
+        background: var(--morgia-green);
+        border-color: var(--morgia-green);
+        box-shadow: 0 12px 32px rgba(76, 175, 80, 0.4);
+        transform: translateY(-2px);
+      }
+
+      .v18-day-pill.active-pill .w-name {
+        color: #fff;
+      }
+
+      .v18-day-pill.active-pill .w-num {
+        background: #111712;
+        color: var(--morgia-gold);
+      }
+
+      .day-has-docs-indicator {
+        width: 6px;
+        height: 6px;
+        border-radius: 50%;
+        background: var(--morgia-green);
+        box-shadow: 0 0 6px var(--morgia-green);
+        position: absolute;
+        bottom: -4px;
+        opacity: 0;
+        transition: opacity 0.3s;
+      }
+
+      .v18-day-pill.has-docs .day-has-docs-indicator {
+        opacity: 1;
+      }
+
+      .v18-day-pill.active-pill .day-has-docs-indicator {
+        background: var(--morgia-gold);
+        box-shadow: 0 0 6px var(--morgia-gold);
+      }
+
+      /* Componenti condivisi carte Glass */
+      .bento-glass-card {
+        background: var(--glass-surface);
+        backdrop-filter: blur(24px);
+        -webkit-backdrop-filter: blur(24px);
+        border: 1px solid var(--glass-border);
+        border-radius: 36px;
+        padding: 36px;
+        box-shadow: 0 24px 48px rgba(0, 0, 0, 0.4);
+        display: flex;
+        flex-direction: column;
+        position: relative;
+        overflow: hidden;
+        transition: all 0.3s ease;
+        max-width: 900px;
+        margin: 0 auto;
+      }
+
+      .bento-glass-card:hover {
+        border-color: var(--glass-border-highlight);
+      }
+
+      .card-create-doc {
+        background: radial-gradient(
+            circle at 90% 10%,
+            rgba(76, 175, 80, 0.15) 0%,
+            transparent 55%
+          ),
+          rgba(255, 255, 255, 0.02);
+      }
+
+      .bento-badge-row {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        margin-bottom: 24px;
+      }
+
+      .bento-icon-box {
+        width: 60px;
+        height: 60px;
+        border-radius: 20px;
+        background: rgba(76, 175, 80, 0.15);
+        border: 1px solid rgba(76, 175, 80, 0.3);
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-size: 28px;
+        box-shadow: 0 8px 24px rgba(76, 175, 80, 0.2);
+      }
+
+      .bento-icon-box.gold-box {
+        background: rgba(255, 179, 0, 0.15);
+        border-color: rgba(255, 179, 0, 0.3);
+        box-shadow: 0 8px 24px rgba(255, 179, 0, 0.2);
+      }
+
+      .bento-tag {
+        font-size: 12px;
+        font-weight: 800;
+        text-transform: uppercase;
+        letter-spacing: 1.5px;
+        padding: 8px 16px;
+        border-radius: 999px;
+        background: rgba(76, 175, 80, 0.15);
+        color: var(--morgia-green);
+        border: 1px solid rgba(76, 175, 80, 0.3);
+      }
+
+      .bento-tag.gold {
+        background: rgba(255, 179, 0, 0.15);
+        color: var(--morgia-gold);
+        border-color: rgba(255, 179, 0, 0.3);
+      }
+
+      .bento-title {
+        font-size: 26px;
+        font-weight: 800;
+        color: #fff;
+        margin: 0 0 10px 0;
+        letter-spacing: -0.5px;
+      }
+
+      .bento-desc {
+        font-size: 15px;
+        color: var(--text-dim);
+        line-height: 1.6;
+        margin: 0 0 28px 0;
+      }
+
+      @keyframes pulseGlow {
+        0% {
+          box-shadow: 0 0 0 0 rgba(76, 175, 80, 0.4);
+        }
+        70% {
+          box-shadow: 0 0 0 15px rgba(76, 175, 80, 0);
+        }
+        100% {
+          box-shadow: 0 0 0 0 rgba(76, 175, 80, 0);
+        }
+      }
+
+      .camera-dropzone {
+        background: rgba(0, 0, 0, 0.4);
+        border: 2px dashed rgba(76, 175, 80, 0.5);
+        border-radius: 28px;
+        padding: 40px 24px;
+        text-align: center;
+        cursor: pointer;
+        transition: all 0.3s cubic-bezier(0.16, 1, 0.3, 1);
+        margin-bottom: 24px;
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        gap: 16px;
+      }
+
+      .camera-dropzone:hover {
+        background: rgba(76, 175, 80, 0.1);
+        border-color: var(--morgia-gold);
+        transform: translateY(-4px);
+        box-shadow: 0 12px 32px rgba(0, 0, 0, 0.3);
+      }
+
+      .camera-dropzone-icon {
+        width: 64px;
+        height: 64px;
+        border-radius: 50%;
+        background: var(--morgia-green);
+        color: #fff;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-size: 28px;
+        animation: pulseGlow 2.5s infinite;
+      }
+
+      .camera-dropzone-title {
+        font-size: 17px;
+        font-weight: 800;
+        color: #fff;
+      }
+
+      .camera-dropzone-sub {
+        font-size: 13px;
+        color: var(--text-dim);
+      }
+
+      .ocr-live-status {
+        background: rgba(0, 0, 0, 0.4);
+        border: 1px solid var(--glass-border);
+        border-radius: 16px;
+        padding: 16px 20px;
+        font-size: 14px;
+        font-weight: 600;
+        color: #d5e0d7;
+        margin-bottom: 24px;
+        display: flex;
+        align-items: center;
+        gap: 12px;
+      }
+
+      .card-actions-row {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 12px;
+      }
+
+      .btn-v18 {
+        background: var(--morgia-green);
+        color: #fff;
+        border: none;
+        padding: 14px 22px;
+        border-radius: 16px;
+        font-size: 14px;
+        font-weight: 800;
+        cursor: pointer;
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        gap: 10px;
+        transition: all 0.3s ease;
+        font-family: inherit;
+        letter-spacing: 0.5px;
+      }
+
+      .btn-v18:hover {
+        background: var(--morgia-green-dark);
+        transform: translateY(-2px);
+        box-shadow: 0 8px 24px rgba(76, 175, 80, 0.4);
+      }
+
+      .btn-v18.outline {
+        background: rgba(255, 255, 255, 0.05);
+        border: 1px solid rgba(255, 255, 255, 0.15);
+        color: #fff;
+      }
+
+      .btn-v18.outline:hover {
+        border-color: var(--morgia-gold);
+        color: var(--morgia-gold);
+        background: rgba(255, 179, 0, 0.1);
+        box-shadow: 0 8px 24px rgba(255, 179, 0, 0.2);
+      }
+
+      .btn-v18.gold {
+        background: var(--morgia-gold);
+        color: #111;
+      }
+
+      .btn-v18.gold:hover {
+        background: #ffc13b;
+      }
+
+      /* --- RIQUADRO ARCHIVIO CON FILTRI DI DATE --- */
+      .archive-filter-box {
+        background: rgba(0, 0, 0, 0.3);
+        border: 1px solid var(--glass-border);
+        border-radius: 24px;
+        padding: 20px;
+        margin-bottom: 20px;
+      }
+
+      .date-filters-grid {
+        display: grid;
+        grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+        gap: 14px;
+        margin-bottom: 16px;
+      }
+
+      .filter-field {
+        min-width: 0;
+        width: 100%;
+      }
+
+      .filter-field.full-width {
+        grid-column: 1 / -1;
+      }
+
+      .filter-field label {
+        display: block;
+        font-size: 12px;
+        font-weight: 800;
+        text-transform: uppercase;
+        letter-spacing: 1px;
+        color: var(--text-dim);
+        margin-bottom: 8px;
+      }
+
+      .v18-dark-input {
+        display: block;
+        width: 100%;
+        min-width: 0;
+        max-width: 100%;
+        padding: 12px 16px;
+        background: rgba(255, 255, 255, 0.05);
+        border: 1px solid rgba(255, 255, 255, 0.1);
+        border-radius: 14px;
+        color: #fff;
+        font-size: 14px;
+        font-family: inherit;
+        outline: none;
+        transition: all 0.3s ease;
+        color-scheme: dark;
+        -webkit-appearance: none;
+        appearance: none;
+      }
+
+      .v18-dark-input:focus {
+        border-color: var(--morgia-green);
+        background: rgba(255, 255, 255, 0.08);
+        box-shadow: 0 0 16px rgba(76, 175, 80, 0.2);
+      }
+
+      .quick-period-pills {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 10px;
+        align-items: center;
+        justify-content: space-between;
+      }
+
+      .period-pills-left {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 8px;
+      }
+
+      .period-chip {
+        background: rgba(255, 255, 255, 0.05);
+        border: 1px solid rgba(255, 255, 255, 0.1);
+        color: var(--text-dim);
+        padding: 8px 16px;
+        border-radius: 999px;
+        font-size: 12px;
+        font-weight: 800;
+        cursor: pointer;
+        transition: all 0.3s ease;
+        letter-spacing: 0.5px;
+      }
+
+      .period-chip:hover {
+        color: #fff;
+        border-color: rgba(255, 255, 255, 0.3);
+        background: rgba(255, 255, 255, 0.1);
+      }
+
+      .period-chip.active {
+        background: var(--morgia-green);
+        color: #fff;
+        border-color: var(--morgia-green);
+        box-shadow: 0 4px 16px rgba(76, 175, 80, 0.4);
+      }
+
+      .archive-results-list {
+        display: flex;
+        flex-direction: column;
+        gap: 12px;
+        max-height: 400px;
+        overflow-y: auto;
+        padding-right: 8px;
+      }
+
+      .archive-results-list::-webkit-scrollbar {
+        width: 6px;
+      }
+      .archive-results-list::-webkit-scrollbar-track {
+        background: rgba(0, 0, 0, 0.1);
+        border-radius: 10px;
+      }
+      .archive-results-list::-webkit-scrollbar-thumb {
+        background: rgba(76, 175, 80, 0.4);
+        border-radius: 10px;
+      }
+      .archive-results-list::-webkit-scrollbar-thumb:hover {
+        background: rgba(76, 175, 80, 0.8);
+      }
+
+      .archive-card-item {
+        background: rgba(0, 0, 0, 0.4);
+        border: 1px solid rgba(255, 255, 255, 0.08);
+        border-left: 4px solid var(--morgia-green);
+        border-radius: 20px;
+        padding: 16px 20px;
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        gap: 16px;
+        transition: all 0.3s ease;
+      }
+
+      .archive-card-item:hover {
+        background: rgba(255, 255, 255, 0.06);
+        border-color: rgba(76, 175, 80, 0.5);
+        transform: translateX(4px);
+        box-shadow: 0 8px 24px rgba(0, 0, 0, 0.2);
+      }
+
+      .arc-info-title {
+        font-size: 15px;
+        font-weight: 800;
+        color: #fff;
+        display: flex;
+        align-items: center;
+        gap: 10px;
+        flex-wrap: wrap;
+      }
+
+      .arc-lotto-badge {
+        background: rgba(255, 179, 0, 0.15);
+        color: var(--morgia-gold);
+        border: 1px solid rgba(255, 179, 0, 0.3);
+        padding: 4px 10px;
+        border-radius: 8px;
+        font-size: 12px;
+        font-weight: 900;
+        letter-spacing: 0.5px;
+      }
+
+      .arc-info-sub {
+        font-size: 13px;
+        color: var(--text-dim);
+        margin-top: 6px;
+        font-weight: 500;
+      }
+
+      .arc-actions {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        flex-shrink: 0;
+      }
+
+      .btn-arc-load {
+        background: rgba(76, 175, 80, 0.15);
+        border: 1px solid rgba(76, 175, 80, 0.4);
+        color: #fff;
+        padding: 8px 14px;
+        border-radius: 12px;
+        font-size: 13px;
+        font-weight: 800;
+        cursor: pointer;
+        transition: all 0.3s ease;
+      }
+
+      .btn-arc-load:hover {
+        background: var(--morgia-green);
+        box-shadow: 0 4px 16px rgba(76, 175, 80, 0.3);
+      }
+
+      .btn-arc-del {
+        background: rgba(255, 82, 82, 0.1);
+        border: 1px solid rgba(255, 82, 82, 0.3);
+        color: #ff6b6b;
+        padding: 8px 12px;
+        border-radius: 12px;
+        font-size: 13px;
+        cursor: pointer;
+        transition: all 0.3s ease;
+      }
+
+      .btn-arc-del:hover {
+        background: rgba(255, 82, 82, 0.3);
+        color: #fff;
+      }
+
+      /* --- AREA LAVORO DOCUMENTO A4 --- */
+      .a4-toolbar {
+        max-width: 210mm;
+        margin: 0 auto 24px auto;
+        background: rgba(18, 28, 20, 0.85);
+        backdrop-filter: blur(24px);
+        border: 1px solid var(--glass-border);
+        padding: 20px 28px;
+        border-radius: 28px;
+        box-shadow: 0 16px 40px rgba(0, 0, 0, 0.5);
+        display: flex;
+        flex-wrap: wrap;
+        gap: 16px;
+        align-items: center;
+        justify-content: space-between;
+      }
+
+      .toolbar-group {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 12px;
+        align-items: center;
+      }
+
+      input[type="file"] {
+        display: none;
+      }
+
+      /* --- FOGLIO A4 (INALTERATO PER STAMPA) --- */
+      .a4-sheet {
+        font-family: var(--font-a4);
+        width: 100%;
+        max-width: 210mm;
+        min-height: 297mm;
+        margin: 0 auto;
+        background: #fff;
+        padding: 16mm 18mm;
+        box-shadow: 0 24px 60px rgba(0, 0, 0, 0.7);
+        border-radius: 8px;
+        position: relative;
+        color: #000;
+      }
+
+      .header-top {
+        font-weight: bold;
+        font-size: 15pt;
+        margin-bottom: 6px;
+      }
+      .header-title {
+        text-align: right;
+        font-weight: bold;
+        font-size: 14pt;
+        margin-bottom: 14px;
+        text-transform: uppercase;
+      }
+      .cartellino-box {
+        border: 1.5px solid var(--border-color);
+        height: 58mm;
+        padding: 6px 10px;
+        margin-bottom: 18px;
+        position: relative;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        overflow: hidden;
+      }
+      .cartellino-label {
+        position: absolute;
+        top: 6px;
+        left: 8px;
+        font-size: 11pt;
+        background: rgba(255, 255, 255, 0.85);
+        padding: 0 4px;
+      }
+      #preview-img {
+        max-height: 52mm;
+        max-width: 95%;
+        object-fit: contain;
+        display: none;
+      }
+      .info-table {
+        width: 100%;
+        border-collapse: collapse;
+        margin-bottom: 22px;
+      }
+      .info-table td {
+        border: 1.5px solid var(--border-color);
+        padding: 6px 10px;
+        font-size: 11.5pt;
+      }
+      .info-table td.label-col {
+        width: 42%;
+        font-weight: bold;
+      }
+      .info-table input {
+        width: 100%;
+        border: none;
+        font-family: inherit;
+        font-size: 11.5pt;
+        font-weight: bold;
+        outline: none;
+        background: transparent;
+        color: #000;
+      }
+      .section-title {
+        font-weight: bold;
+        font-size: 13pt;
+        margin-bottom: 8px;
+      }
+      .prod-type-wrapper {
+        display: flex;
+        align-items: center;
+        margin-left: 110px;
+        margin-bottom: 22px;
+        gap: 24px;
+      }
+      .prod-type-label {
+        font-weight: bold;
+        font-size: 11.5pt;
+        min-width: 160px;
+      }
+      .prod-type-check {
+        width: 65px;
+        height: 26px;
+        border: 1.5px solid var(--border-color);
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        cursor: pointer;
+        font-weight: bold;
+        font-size: 14pt;
+        user-select: none;
+      }
+
+      /* Modifiche Layout Tabelle Qualità */
+      .quality-tables-wrapper {
+        display: flex;
+        gap: 12px;
+        width: 100%;
+        margin-bottom: 22px;
+      }
+      .quality-table {
+        width: 100%;
+        border-collapse: collapse;
+        margin-bottom: 0;
+      }
+      .quality-table td {
+        border: 1.5px solid var(--border-color);
+        padding: 6px 10px;
+        font-size: 11.5pt;
+      }
+      .quality-table td.q-label {
+        width: 55%;
+      }
+      .quality-table td.q-val {
+        width: 45%;
+      }
+      .param-input {
+        width: 100%;
+        border: none;
+        font-family: inherit;
+        font-size: 11.5pt;
+        font-weight: bold;
+        outline: none;
+        background: transparent;
+        color: #000;
+      }
+
+      .notes-container {
+        display: flex;
+        align-items: center;
+        margin-top: -1.5px;
+        margin-bottom: 30px;
+      }
+      .notes-side-label {
+        width: 12%;
+        font-size: 11pt;
+        padding-left: 4px;
+      }
+      .notes-table {
+        width: 88%;
+        border-collapse: collapse;
+      }
+      .notes-table td {
+        border: 1.5px solid var(--border-color);
+        padding: 0;
+      }
+      .notes-textarea {
+        width: 100%;
+        height: 110px;
+        border: none;
+        padding: 8px;
+        font-family: inherit;
+        font-size: 11pt;
+        resize: none;
+        outline: none;
+        background: transparent;
+        color: #000;
+      }
+      .judgment-row {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        margin-top: 28px;
+        margin-bottom: 36px;
+        padding-right: 20px;
+      }
+      .judgment-title {
+        font-weight: bold;
+        font-size: 14pt;
+      }
+      .judgment-option {
+        font-size: 11.5pt;
+        padding: 4px 12px;
+        border: 2px solid transparent;
+        border-radius: 20px;
+        cursor: pointer;
+        user-select: none;
+      }
+      .judgment-option.selected {
+        border-color: #000;
+        font-weight: bold;
+      }
+      .footer-row {
+        display: flex;
+        justify-content: space-between;
+        align-items: flex-end;
+        margin-top: 30px;
+      }
+      .date-block {
+        font-size: 11pt;
+      }
+      .date-input {
+        border: none;
+        border-bottom: 1.5px solid #000;
+        font-family: inherit;
+        font-size: 11pt;
+        width: 150px;
+        margin-left: 10px;
+        text-align: center;
+        outline: none;
+        color: #000;
+        background: transparent;
+      }
+      .signature-block {
+        text-align: center;
+        width: 260px;
+      }
+      .signature-title {
+        font-weight: bold;
+        font-size: 11pt;
+        margin-bottom: 35px;
+      }
+      .signature-line {
+        border-bottom: 1px dotted #000;
+        width: 100%;
+      }
+
+      /* Logo per la stampa, nascosto a schermo */
+      .print-logo-container {
+        display: none;
+        align-items: center;
+        margin-bottom: 20px;
+        transform: scaleY(0.88);
+        transform-origin: left top;
+        -webkit-print-color-adjust: exact;
+        print-color-adjust: exact;
+      }
+
+      /* =======================================
+         MEDIA QUERIES RESPONSIVE (TABLET/SMARTPHONE)
+         ======================================= */
+      @media (max-width: 1024px) {
+        /* Adattamento struttura principale */
+        #app-content {
+          padding: 24px 16px 120px 16px; /* Lascia spazio sotto per la barra */
+        }
+
+        /* La Sidebar diventa una Bottom Navigation Bar */
+        .v18-sidebar {
+          top: auto;
+          bottom: 16px;
+          left: 16px;
+          right: 16px;
+          width: auto;
+          height: 72px;
+          flex-direction: row;
+          justify-content: center;
+          padding: 0 20px;
+          border-radius: 36px;
+          background: rgba(15, 22, 16, 0.95);
+        }
+
+        .sidebar-brand-container {
+          display: none;
+        }
+
+        .sidebar-nav {
+          flex-direction: row;
+          padding: 0;
+          gap: 12px;
+          background: transparent;
+        }
+
+        .sidebar-footer {
+          margin-top: 0;
+          margin-left: 16px;
+        }
+
+        /* Disabilita tooltip su schermi touch/piccoli */
+        .nav-btn::after {
+          display: none;
+        }
+
+        /* Widget calendario compatto */
+        .v18-week-card {
+          padding: 24px 20px;
+        }
+        .v18-week-strip {
+          gap: 4px;
+        }
+
+        .bento-glass-card {
+          padding: 24px 20px;
+        }
+
+        /* Fix Modulo A4 in modo che si adatti agli schermi piccoli */
+        .a4-sheet {
+          padding: 10mm 10mm;
+        }
+        .info-table,
+        .notes-table {
+          width: 100%;
+        }
+        .quality-tables-wrapper {
+          flex-direction: column;
+        }
+        .prod-type-wrapper {
+          margin-left: 0;
+          justify-content: space-between;
+        }
+        .notes-side-label {
+          width: 25%;
+        }
+        .judgment-row {
+          flex-direction: column;
+          align-items: flex-start;
+          gap: 12px;
+        }
+        .footer-row {
+          flex-direction: column;
+          align-items: flex-start;
+          gap: 20px;
+        }
+        .signature-block {
+          width: 100%;
+        }
+      }
+
+      @media (max-width: 560px) {
+        .date-filters-grid {
+          grid-template-columns: minmax(0, 1fr);
+        }
+      }
+
+      /* =======================================
+         MEDIA QUERIES PER LA STAMPA
+         ======================================= */
+      @media print {
+        body {
+          background: #fff !important;
+          padding: 0;
+        }
+        #login-screen,
+        .v18-sidebar,
+        .a4-toolbar,
+        .view-section:not(#view-a4) {
+          display: none !important;
+        }
+        #app-content {
+          display: block !important;
+          padding: 0 !important;
+          margin: 0 !important;
+          background: #fff !important;
+          transform: none !important;
+          opacity: 1 !important;
+        }
+        #view-a4 {
+          display: block !important;
+          opacity: 1 !important;
+        }
+        .a4-sheet {
+          box-shadow: none;
+          width: 100%;
+          max-width: none;
+          min-height: auto;
+          padding: 8mm 10mm;
+        }
+
+        .quality-tables-wrapper {
+          flex-direction: row !important; /* Mantieni le colonne affiancate in stampa */
+        }
+
+        /* Mostra il nuovo logo e nascondi la vecchia scritta */
+        .print-logo-container {
+          display: flex !important;
+        }
+        .header-top {
+          display: none !important;
+        }
+
+        /* Forza i colori di stampa in tutto il documento (Essenziale per i loghi SVG) */
+        * {
+          -webkit-print-color-adjust: exact !important;
+          print-color-adjust: exact !important;
+        }
+      }
+    </style>
+  </head>
+  <body>
+    <!-- SCHERMATA LOGIN -->
+    <div id="login-screen">
+      <div class="glass-panel">
+        <!-- LOGO MORGIA DATA CON "O" FEDELE ALL'IMMAGINE GENERATA -->
+        <div
+          class="login-logo-container"
+          style="
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-family: 'Inter', 'Arial', sans-serif;
+            margin-bottom: 36px;
+            user-select: none;
+            transform: scaleY(0.88); /* Stringe l'altezza */
+            transform-origin: center;
+          "
+        >
+          <div
+            style="
+              display: flex;
+              align-items: center;
+              color: #ffffff;
+              font-size: 40px;
+              font-weight: 900;
+              letter-spacing: -2px; /* Compatta le lettere M, R, G, I, A */
+            "
+          >
+            M
+            <!-- SVG della "O" fedele all'immagine -->
+            <div
+              style="
+                width: 48px;
+                height: 48px;
+                margin: 0 -2px; /* Elimina gli spazi a destra e sinistra della O */
+                position: relative;
+                display: flex;
+                align-items: center;
+                justify-content: center;
+              "
+            >
+              <svg viewBox="0 0 100 104" width="100%" height="100%">
+                <!-- Cerchio esterno dorato con apertura in alto per la foglia -->
+                <path
+                  d="M 64 19.5 A 38 38 0 1 1 42 18.8"
+                  fill="none"
+                  stroke="#E5A93B"
+                  stroke-width="5.5"
+                  stroke-linecap="round"
+                />
+
+                <!-- Foglia verde incastonata in alto con nervatura centrale -->
+                <path
+                  d="M 45 20 C 44 9, 53 2, 66 3 C 66 14, 57 22, 45 20 Z"
+                  fill="#4CAF50"
+                />
+                <path
+                  d="M 45 20 Q 54 13 61 7"
+                  fill="none"
+                  stroke="#182219"
+                  stroke-width="2.2"
+                  stroke-linecap="round"
+                />
+
+                <!-- Pallino dorato centrale -->
+                <circle cx="50" cy="56" r="5" fill="#E5A93B" />
+
+                <!-- Raggiera a 12 segmenti: corona interna di petali + corona esterna di gocce -->
+                <g fill="#4CAF50">
+                  <g transform="rotate(0 50 56)">
+                    <path
+                      d="M 50 48.5 C 52.3 44, 52.3 39.5, 50 36 C 47.7 39.5, 47.7 44, 50 48.5 Z"
+                    />
+                    <path
+                      d="M 50 32.5 C 52.4 29, 52.4 25, 50 22 C 47.6 25, 47.6 29, 50 32.5 Z"
+                    />
+                  </g>
+                  <g transform="rotate(30 50 56)">
+                    <path
+                      d="M 50 48.5 C 52.3 44, 52.3 39.5, 50 36 C 47.7 39.5, 47.7 44, 50 48.5 Z"
+                    />
+                    <path
+                      d="M 50 32.5 C 52.4 29, 52.4 25, 50 22 C 47.6 25, 47.6 29, 50 32.5 Z"
+                    />
+                  </g>
+                  <g transform="rotate(60 50 56)">
+                    <path
+                      d="M 50 48.5 C 52.3 44, 52.3 39.5, 50 36 C 47.7 39.5, 47.7 44, 50 48.5 Z"
+                    />
+                    <path
+                      d="M 50 32.5 C 52.4 29, 52.4 25, 50 22 C 47.6 25, 47.6 29, 50 32.5 Z"
+                    />
+                  </g>
+                  <g transform="rotate(90 50 56)">
+                    <path
+                      d="M 50 48.5 C 52.3 44, 52.3 39.5, 50 36 C 47.7 39.5, 47.7 44, 50 48.5 Z"
+                    />
+                    <path
+                      d="M 50 32.5 C 52.4 29, 52.4 25, 50 22 C 47.6 25, 47.6 29, 50 32.5 Z"
+                    />
+                  </g>
+                  <g transform="rotate(120 50 56)">
+                    <path
+                      d="M 50 48.5 C 52.3 44, 52.3 39.5, 50 36 C 47.7 39.5, 47.7 44, 50 48.5 Z"
+                    />
+                    <path
+                      d="M 50 32.5 C 52.4 29, 52.4 25, 50 22 C 47.6 25, 47.6 29, 50 32.5 Z"
+                    />
+                  </g>
+                  <g transform="rotate(150 50 56)">
+                    <path
+                      d="M 50 48.5 C 52.3 44, 52.3 39.5, 50 36 C 47.7 39.5, 47.7 44, 50 48.5 Z"
+                    />
+                    <path
+                      d="M 50 32.5 C 52.4 29, 52.4 25, 50 22 C 47.6 25, 47.6 29, 50 32.5 Z"
+                    />
+                  </g>
+                  <g transform="rotate(180 50 56)">
+                    <path
+                      d="M 50 48.5 C 52.3 44, 52.3 39.5, 50 36 C 47.7 39.5, 47.7 44, 50 48.5 Z"
+                    />
+                    <path
+                      d="M 50 32.5 C 52.4 29, 52.4 25, 50 22 C 47.6 25, 47.6 29, 50 32.5 Z"
+                    />
+                  </g>
+                  <g transform="rotate(210 50 56)">
+                    <path
+                      d="M 50 48.5 C 52.3 44, 52.3 39.5, 50 36 C 47.7 39.5, 47.7 44, 50 48.5 Z"
+                    />
+                    <path
+                      d="M 50 32.5 C 52.4 29, 52.4 25, 50 22 C 47.6 25, 47.6 29, 50 32.5 Z"
+                    />
+                  </g>
+                  <g transform="rotate(240 50 56)">
+                    <path
+                      d="M 50 48.5 C 52.3 44, 52.3 39.5, 50 36 C 47.7 39.5, 47.7 44, 50 48.5 Z"
+                    />
+                    <path
+                      d="M 50 32.5 C 52.4 29, 52.4 25, 50 22 C 47.6 25, 47.6 29, 50 32.5 Z"
+                    />
+                  </g>
+                  <g transform="rotate(270 50 56)">
+                    <path
+                      d="M 50 48.5 C 52.3 44, 52.3 39.5, 50 36 C 47.7 39.5, 47.7 44, 50 48.5 Z"
+                    />
+                    <path
+                      d="M 50 32.5 C 52.4 29, 52.4 25, 50 22 C 47.6 25, 47.6 29, 50 32.5 Z"
+                    />
+                  </g>
+                  <g transform="rotate(300 50 56)">
+                    <path
+                      d="M 50 48.5 C 52.3 44, 52.3 39.5, 50 36 C 47.7 39.5, 47.7 44, 50 48.5 Z"
+                    />
+                    <path
+                      d="M 50 32.5 C 52.4 29, 52.4 25, 50 22 C 47.6 25, 47.6 29, 50 32.5 Z"
+                    />
+                  </g>
+                  <g transform="rotate(330 50 56)">
+                    <path
+                      d="M 50 48.5 C 52.3 44, 52.3 39.5, 50 36 C 47.7 39.5, 47.7 44, 50 48.5 Z"
+                    />
+                    <path
+                      d="M 50 32.5 C 52.4 29, 52.4 25, 50 22 C 47.6 25, 47.6 29, 50 32.5 Z"
+                    />
+                  </g>
+                </g>
+              </svg>
+            </div>
+            RGIA
+          </div>
+          <!-- DATA (Verde) -->
+          <div
+            style="
+              color: var(--morgia-green);
+              font-family: 'Inter', sans-serif;
+              font-size: 38px;
+              font-weight: 800;
+              margin-left: 2px; /* Spazio ridotto */
+              letter-spacing: -2px; /* Compatta la scritta DATA */
+            "
+          >
+            DATA
+          </div>
+        </div>
+
+        <form onsubmit="handleLogin(event)">
+          <div class="input-group">
+            <label for="username">Username</label>
+            <input
+              type="text"
+              id="username"
+              class="glass-input"
+              placeholder="Inserisci username"
+              required
+            />
+          </div>
+          <div class="input-group">
+            <label for="password">Password</label>
+            <input
+              type="password"
+              id="password"
+              class="glass-input"
+              placeholder="Inserisci password"
+              required
+            />
+          </div>
+          <button type="submit" class="btn-login">Accedi</button>
+          <div id="login-error">Credenziali errate. Riprova.</div>
+        </form>
+      </div>
+    </div>
+
+    <!-- DASHBOARD V18 POST-LOGIN -->
+    <div id="app-content">
+      <aside class="v18-sidebar">
+        <div class="sidebar-brand-container">
+          <div
+            class="sidebar-brand"
+            id="sidebar-brand-btn"
+            title="MorgiaData"
+            onclick="handleBrandClick()"
+          >
+            <!-- SVG della "O" fedele all'immagine inserito nella sidebar -->
+            <svg viewBox="0 0 100 104" width="70%" height="70%">
+              <!-- Cerchio esterno dorato con apertura in alto per la foglia -->
+              <path
+                d="M 64 19.5 A 38 38 0 1 1 42 18.8"
+                fill="none"
+                stroke="#E5A93B"
+                stroke-width="5.5"
+                stroke-linecap="round"
+              />
+              <!-- Foglia verde incastonata in alto con nervatura centrale -->
+              <path
+                d="M 45 20 C 44 9, 53 2, 66 3 C 66 14, 57 22, 45 20 Z"
+                fill="#4CAF50"
+              />
+              <path
+                d="M 45 20 Q 54 13 61 7"
+                fill="none"
+                stroke="#182219"
+                stroke-width="2.2"
+                stroke-linecap="round"
+              />
+              <!-- Pallino dorato centrale -->
+              <circle cx="50" cy="56" r="5" fill="#E5A93B" />
+              <!-- Raggiera a 12 segmenti: corona interna di petali + corona esterna di gocce -->
+              <g fill="#4CAF50">
+                <g transform="rotate(0 50 56)">
+                  <path
+                    d="M 50 48.5 C 52.3 44, 52.3 39.5, 50 36 C 47.7 39.5, 47.7 44, 50 48.5 Z"
+                  />
+                  <path
+                    d="M 50 32.5 C 52.4 29, 52.4 25, 50 22 C 47.6 25, 47.6 29, 50 32.5 Z"
+                  />
+                </g>
+                <g transform="rotate(30 50 56)">
+                  <path
+                    d="M 50 48.5 C 52.3 44, 52.3 39.5, 50 36 C 47.7 39.5, 47.7 44, 50 48.5 Z"
+                  />
+                  <path
+                    d="M 50 32.5 C 52.4 29, 52.4 25, 50 22 C 47.6 25, 47.6 29, 50 32.5 Z"
+                  />
+                </g>
+                <g transform="rotate(60 50 56)">
+                  <path
+                    d="M 50 48.5 C 52.3 44, 52.3 39.5, 50 36 C 47.7 39.5, 47.7 44, 50 48.5 Z"
+                  />
+                  <path
+                    d="M 50 32.5 C 52.4 29, 52.4 25, 50 22 C 47.6 25, 47.6 29, 50 32.5 Z"
+                  />
+                </g>
+                <g transform="rotate(90 50 56)">
+                  <path
+                    d="M 50 48.5 C 52.3 44, 52.3 39.5, 50 36 C 47.7 39.5, 47.7 44, 50 48.5 Z"
+                  />
+                  <path
+                    d="M 50 32.5 C 52.4 29, 52.4 25, 50 22 C 47.6 25, 47.6 29, 50 32.5 Z"
+                  />
+                </g>
+                <g transform="rotate(120 50 56)">
+                  <path
+                    d="M 50 48.5 C 52.3 44, 52.3 39.5, 50 36 C 47.7 39.5, 47.7 44, 50 48.5 Z"
+                  />
+                  <path
+                    d="M 50 32.5 C 52.4 29, 52.4 25, 50 22 C 47.6 25, 47.6 29, 50 32.5 Z"
+                  />
+                </g>
+                <g transform="rotate(150 50 56)">
+                  <path
+                    d="M 50 48.5 C 52.3 44, 52.3 39.5, 50 36 C 47.7 39.5, 47.7 44, 50 48.5 Z"
+                  />
+                  <path
+                    d="M 50 32.5 C 52.4 29, 52.4 25, 50 22 C 47.6 25, 47.6 29, 50 32.5 Z"
+                  />
+                </g>
+                <g transform="rotate(180 50 56)">
+                  <path
+                    d="M 50 48.5 C 52.3 44, 52.3 39.5, 50 36 C 47.7 39.5, 47.7 44, 50 48.5 Z"
+                  />
+                  <path
+                    d="M 50 32.5 C 52.4 29, 52.4 25, 50 22 C 47.6 25, 47.6 29, 50 32.5 Z"
+                  />
+                </g>
+                <g transform="rotate(210 50 56)">
+                  <path
+                    d="M 50 48.5 C 52.3 44, 52.3 39.5, 50 36 C 47.7 39.5, 47.7 44, 50 48.5 Z"
+                  />
+                  <path
+                    d="M 50 32.5 C 52.4 29, 52.4 25, 50 22 C 47.6 25, 47.6 29, 50 32.5 Z"
+                  />
+                </g>
+                <g transform="rotate(240 50 56)">
+                  <path
+                    d="M 50 48.5 C 52.3 44, 52.3 39.5, 50 36 C 47.7 39.5, 47.7 44, 50 48.5 Z"
+                  />
+                  <path
+                    d="M 50 32.5 C 52.4 29, 52.4 25, 50 22 C 47.6 25, 47.6 29, 50 32.5 Z"
+                  />
+                </g>
+                <g transform="rotate(270 50 56)">
+                  <path
+                    d="M 50 48.5 C 52.3 44, 52.3 39.5, 50 36 C 47.7 39.5, 47.7 44, 50 48.5 Z"
+                  />
+                  <path
+                    d="M 50 32.5 C 52.4 29, 52.4 25, 50 22 C 47.6 25, 47.6 29, 50 32.5 Z"
+                  />
+                </g>
+                <g transform="rotate(300 50 56)">
+                  <path
+                    d="M 50 48.5 C 52.3 44, 52.3 39.5, 50 36 C 47.7 39.5, 47.7 44, 50 48.5 Z"
+                  />
+                  <path
+                    d="M 50 32.5 C 52.4 29, 52.4 25, 50 22 C 47.6 25, 47.6 29, 50 32.5 Z"
+                  />
+                </g>
+                <g transform="rotate(330 50 56)">
+                  <path
+                    d="M 50 48.5 C 52.3 44, 52.3 39.5, 50 36 C 47.7 39.5, 47.7 44, 50 48.5 Z"
+                  />
+                  <path
+                    d="M 50 32.5 C 52.4 29, 52.4 25, 50 22 C 47.6 25, 47.6 29, 50 32.5 Z"
+                  />
+                </g>
+              </g>
+            </svg>
+          </div>
+        </div>
+
+        <nav class="sidebar-nav">
+          <button
+            class="nav-btn active"
+            id="nav-dash"
+            data-tooltip="Dashboard Home"
+            onclick="switchView('view-home', 'nav-dash')"
+          >
+            <svg
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              stroke-linecap="round"
+              stroke-linejoin="round"
+            >
+              <rect x="3" y="4" width="18" height="18" rx="2" ry="2" />
+              <line x1="16" y1="2" x2="16" y2="6" />
+              <line x1="8" y1="2" x2="8" y2="6" />
+              <line x1="3" y1="10" x2="21" y2="10" />
+            </svg>
+          </button>
+          <button
+            class="nav-btn"
+            id="nav-new"
+            data-tooltip="Nuovo Documento (OCR)"
+            onclick="switchView('view-new', 'nav-new')"
+          >
+            <svg
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              stroke-linecap="round"
+              stroke-linejoin="round"
+            >
+              <path
+                d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"
+              />
+              <circle cx="12" cy="13" r="4" />
+            </svg>
+          </button>
+          <button
+            class="nav-btn"
+            id="nav-archive"
+            data-tooltip="Archivio Storico"
+            onclick="switchView('view-archive', 'nav-archive')"
+          >
+            <svg
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              stroke-linecap="round"
+              stroke-linejoin="round"
+            >
+              <path
+                d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"
+              />
+            </svg>
+          </button>
+          <button
+            class="nav-btn"
+            id="nav-a4"
+            data-tooltip="Modulo A4 Manuale"
+            onclick="switchView('view-a4', 'nav-a4')"
+          >
+            <svg
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              stroke-linecap="round"
+              stroke-linejoin="round"
+            >
+              <path
+                d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"
+              />
+              <polyline points="14 2 14 8 20 8" />
+              <line x1="16" y1="13" x2="8" y2="13" />
+              <line x1="16" y1="17" x2="8" y2="17" />
+            </svg>
+          </button>
+        </nav>
+
+        <div class="sidebar-footer">
+          <button
+            class="nav-btn"
+            data-tooltip="Esci (Logout)"
+            onclick="handleLogout()"
+          >
+            <svg
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              stroke-linecap="round"
+              stroke-linejoin="round"
+            >
+              <path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4" />
+              <polyline points="16 17 21 12 16 7" />
+              <line x1="21" y1="12" x2="9" y2="12" />
+            </svg>
+          </button>
+        </div>
+      </aside>
+
+      <div class="dashboard-container">
+        <!-- VISTA 1: HOME -->
+        <div id="view-home" class="view-section active">
+          <div class="v18-week-card">
+            <div class="week-card-header">
+              <div>
+                <h3 class="week-card-title" id="v18-month-label">
+                  Ottobre 2026
+                </h3>
+                <div class="week-card-sub">
+                  Seleziona un giorno per filtrare rapidamente in archivio
+                </div>
+              </div>
+              <button
+                type="button"
+                class="period-chip"
+                onclick="setPeriodFilter('all'); switchView('view-archive', 'nav-archive');"
+              >
+                Vedi Tutto
+              </button>
+            </div>
+            <div class="v18-week-strip" id="v18-week-strip"></div>
+          </div>
+        </div>
+
+        <!-- VISTA 2: NUOVO DOCUMENTO OCR -->
+        <div id="view-new" class="view-section">
+          <div class="bento-glass-card card-create-doc">
+            <div>
+              <div class="bento-badge-row">
+                <div class="bento-icon-box">📷</div>
+                <span class="bento-tag">Creazione Rapida</span>
+              </div>
+              <h2 class="bento-title">Nuovo Documento</h2>
+              <p class="bento-desc">
+                Scatta una foto all'etichetta. Il sistema estrarrà Lotto,
+                Azienda e Prodotto per compilare il modulo A4.
+              </p>
+
+              <input
+                type="file"
+                id="camera-input"
+                accept="image/*"
+                capture="environment"
+              />
+              <label class="camera-dropzone" for="camera-input">
+                <div class="camera-dropzone-icon">📸</div>
+                <div class="camera-dropzone-title">
+                  Tocca qui per Scattare la Foto all'Etichetta
+                </div>
+                <div class="camera-dropzone-sub">
+                  Processo OCR con correzione automatica tramite archivio
+                </div>
+              </label>
+
+              <div class="ocr-live-status">
+                <span>⚡</span>
+                <span id="status-msg"
+                  >Pronto. Usa la fotocamera o procedi manualmente.</span
+                >
+              </div>
+            </div>
+            <div class="card-actions-row">
+              <button
+                type="button"
+                class="btn-v18"
+                onclick="document.getElementById('camera-input').click()"
+              >
+                📷 Scatta Foto
+              </button>
+              <button
+                type="button"
+                class="btn-v18 outline"
+                id="btn-modulo-vuoto"
+                onclick="nuovoDocumentoVuoto()"
+              >
+                📄 Modulo Vuoto
+              </button>
+            </div>
+          </div>
+        </div>
+
+        <!-- VISTA 3: ARCHIVIO -->
+        <div id="view-archive" class="view-section">
+          <div class="bento-glass-card">
+            <div>
+              <div class="bento-badge-row">
+                <div class="bento-icon-box gold-box">📂</div>
+                <span class="bento-tag gold"
+                  ><span id="count-archivio">0</span> in Archivio</span
+                >
+              </div>
+              <h2 class="bento-title">Archivio Storico</h2>
+              <p class="bento-desc">
+                Accedi all'archivio documenti utilizzando i filtri di date per
+                cercare uno storico di un preciso periodo.
+              </p>
+
+              <div class="archive-filter-box">
+                <div class="date-filters-grid">
+                  <div class="filter-field">
+                    <label for="filter-date-from">Data Dal</label>
+                    <input
+                      type="date"
+                      id="filter-date-from"
+                      class="v18-dark-input"
+                      onchange="applicaFiltriArchivio()"
+                    />
+                  </div>
+                  <div class="filter-field">
+                    <label for="filter-date-to">Data Al</label>
+                    <input
+                      type="date"
+                      id="filter-date-to"
+                      class="v18-dark-input"
+                      onchange="applicaFiltriArchivio()"
+                    />
+                  </div>
+                  <div class="filter-field full-width">
+                    <label for="filter-search">Ricerca Libera</label>
+                    <input
+                      type="text"
+                      id="filter-search"
+                      class="v18-dark-input"
+                      placeholder="Lotto, Azienda..."
+                      oninput="applicaFiltriArchivio()"
+                    />
+                  </div>
+                </div>
+                <div class="quick-period-pills">
+                  <div class="period-pills-left">
+                    <button
+                      type="button"
+                      class="period-chip active"
+                      id="chip-all"
+                      onclick="setPeriodFilter('all')"
+                    >
+                      Tutti
+                    </button>
+                    <button
+                      type="button"
+                      class="period-chip"
+                      id="chip-today"
+                      onclick="setPeriodFilter('today')"
+                    >
+                      Oggi
+                    </button>
+                    <button
+                      type="button"
+                      class="period-chip"
+                      id="chip-7days"
+                      onclick="setPeriodFilter('7days')"
+                    >
+                      7 Giorni
+                    </button>
+                    <button
+                      type="button"
+                      class="period-chip"
+                      id="chip-month"
+                      onclick="setPeriodFilter('month')"
+                    >
+                      Questo Mese
+                    </button>
+                  </div>
+                  <span
+                    id="filtered-count-label"
+                    style="
+                      font-size: 12px;
+                      color: var(--morgia-gold);
+                      font-weight: 800;
+                    "
+                    >0 risultati</span
+                  >
+                </div>
+              </div>
+              <div id="archive-list" class="archive-results-list"></div>
+            </div>
+          </div>
+        </div>
+
+        <!-- VISTA 4: MODULO A4 -->
+        <div id="view-a4" class="view-section">
+          <datalist id="list-aziende"></datalist>
+          <datalist id="list-lotti"></datalist>
+          <datalist id="list-prodotti"></datalist>
+          <datalist id="list-varieta"></datalist>
+          <datalist id="list-calibri"></datalist>
+          <datalist id="list-confezioni"></datalist>
+
+          <div class="a4-toolbar">
+            <div class="toolbar-group">
+              <label
+                class="btn-v18"
+                for="camera-input"
+                style="cursor: pointer"
+                onclick="switchView('view-new', 'nav-new')"
+                >📷 Nuova Foto OCR</label
+              >
+              <button
+                class="btn-v18 outline"
+                type="button"
+                onclick="generaValoriRandom()"
+              >
+                🎲 Valori Random
+              </button>
+            </div>
+            <div class="toolbar-group">
+              <button
+                class="btn-v18 gold"
+                type="button"
+                onclick="salvaEStampa()"
+              >
+                🖨️ Salva in Archivio & Stampa A4
+              </button>
+            </div>
+          </div>
+
+          <!-- FOGLIO A4 -->
+          <div class="a4-sheet">
+            <!-- LOGO MORGIA DATA PER LA STAMPA -->
+            <div class="print-logo-container">
+              <div
+                style="
+                  display: flex;
+                  align-items: center;
+                  color: #000000;
+                  font-size: 32px;
+                  font-weight: 900;
+                  letter-spacing: -1.5px;
+                "
+              >
+                M
+                <div
+                  style="
+                    width: 38px;
+                    height: 38px;
+                    margin: 0 -2px;
+                    position: relative;
+                    display: flex;
+                    align-items: center;
+                    justify-content: center;
+                  "
+                >
+                  <svg viewBox="0 0 100 104" width="100%" height="100%">
+                    <path
+                      d="M 64 19.5 A 38 38 0 1 1 42 18.8"
+                      fill="none"
+                      stroke="#E5A93B"
+                      stroke-width="5.5"
+                      stroke-linecap="round"
+                    />
+                    <path
+                      d="M 45 20 C 44 9, 53 2, 66 3 C 66 14, 57 22, 45 20 Z"
+                      fill="#4CAF50"
+                    />
+                    <path
+                      d="M 45 20 Q 54 13 61 7"
+                      fill="none"
+                      stroke="#182219"
+                      stroke-width="2.2"
+                      stroke-linecap="round"
+                    />
+                    <circle cx="50" cy="56" r="5" fill="#E5A93B" />
+                    <g fill="#4CAF50">
+                      <g transform="rotate(0 50 56)">
+                        <path
+                          d="M 50 48.5 C 52.3 44, 52.3 39.5, 50 36 C 47.7 39.5, 47.7 44, 50 48.5 Z"
+                        />
+                        <path
+                          d="M 50 32.5 C 52.4 29, 52.4 25, 50 22 C 47.6 25, 47.6 29, 50 32.5 Z"
+                        />
+                      </g>
+                      <g transform="rotate(30 50 56)">
+                        <path
+                          d="M 50 48.5 C 52.3 44, 52.3 39.5, 50 36 C 47.7 39.5, 47.7 44, 50 48.5 Z"
+                        />
+                        <path
+                          d="M 50 32.5 C 52.4 29, 52.4 25, 50 22 C 47.6 25, 47.6 29, 50 32.5 Z"
+                        />
+                      </g>
+                      <g transform="rotate(60 50 56)">
+                        <path
+                          d="M 50 48.5 C 52.3 44, 52.3 39.5, 50 36 C 47.7 39.5, 47.7 44, 50 48.5 Z"
+                        />
+                        <path
+                          d="M 50 32.5 C 52.4 29, 52.4 25, 50 22 C 47.6 25, 47.6 29, 50 32.5 Z"
+                        />
+                      </g>
+                      <g transform="rotate(90 50 56)">
+                        <path
+                          d="M 50 48.5 C 52.3 44, 52.3 39.5, 50 36 C 47.7 39.5, 47.7 44, 50 48.5 Z"
+                        />
+                        <path
+                          d="M 50 32.5 C 52.4 29, 52.4 25, 50 22 C 47.6 25, 47.6 29, 50 32.5 Z"
+                        />
+                      </g>
+                      <g transform="rotate(120 50 56)">
+                        <path
+                          d="M 50 48.5 C 52.3 44, 52.3 39.5, 50 36 C 47.7 39.5, 47.7 44, 50 48.5 Z"
+                        />
+                        <path
+                          d="M 50 32.5 C 52.4 29, 52.4 25, 50 22 C 47.6 25, 47.6 29, 50 32.5 Z"
+                        />
+                      </g>
+                      <g transform="rotate(150 50 56)">
+                        <path
+                          d="M 50 48.5 C 52.3 44, 52.3 39.5, 50 36 C 47.7 39.5, 47.7 44, 50 48.5 Z"
+                        />
+                        <path
+                          d="M 50 32.5 C 52.4 29, 52.4 25, 50 22 C 47.6 25, 47.6 29, 50 32.5 Z"
+                        />
+                      </g>
+                      <g transform="rotate(180 50 56)">
+                        <path
+                          d="M 50 48.5 C 52.3 44, 52.3 39.5, 50 36 C 47.7 39.5, 47.7 44, 50 48.5 Z"
+                        />
+                        <path
+                          d="M 50 32.5 C 52.4 29, 52.4 25, 50 22 C 47.6 25, 47.6 29, 50 32.5 Z"
+                        />
+                      </g>
+                      <g transform="rotate(210 50 56)">
+                        <path
+                          d="M 50 48.5 C 52.3 44, 52.3 39.5, 50 36 C 47.7 39.5, 47.7 44, 50 48.5 Z"
+                        />
+                        <path
+                          d="M 50 32.5 C 52.4 29, 52.4 25, 50 22 C 47.6 25, 47.6 29, 50 32.5 Z"
+                        />
+                      </g>
+                      <g transform="rotate(240 50 56)">
+                        <path
+                          d="M 50 48.5 C 52.3 44, 52.3 39.5, 50 36 C 47.7 39.5, 47.7 44, 50 48.5 Z"
+                        />
+                        <path
+                          d="M 50 32.5 C 52.4 29, 52.4 25, 50 22 C 47.6 25, 47.6 29, 50 32.5 Z"
+                        />
+                      </g>
+                      <g transform="rotate(270 50 56)">
+                        <path
+                          d="M 50 48.5 C 52.3 44, 52.3 39.5, 50 36 C 47.7 39.5, 47.7 44, 50 48.5 Z"
+                        />
+                        <path
+                          d="M 50 32.5 C 52.4 29, 52.4 25, 50 22 C 47.6 25, 47.6 29, 50 32.5 Z"
+                        />
+                      </g>
+                      <g transform="rotate(300 50 56)">
+                        <path
+                          d="M 50 48.5 C 52.3 44, 52.3 39.5, 50 36 C 47.7 39.5, 47.7 44, 50 48.5 Z"
+                        />
+                        <path
+                          d="M 50 32.5 C 52.4 29, 52.4 25, 50 22 C 47.6 25, 47.6 29, 50 32.5 Z"
+                        />
+                      </g>
+                      <g transform="rotate(330 50 56)">
+                        <path
+                          d="M 50 48.5 C 52.3 44, 52.3 39.5, 50 36 C 47.7 39.5, 47.7 44, 50 48.5 Z"
+                        />
+                        <path
+                          d="M 50 32.5 C 52.4 29, 52.4 25, 50 22 C 47.6 25, 47.6 29, 50 32.5 Z"
+                        />
+                      </g>
+                    </g>
+                  </svg>
+                </div>
+                RGIA
+              </div>
+              <div
+                style="
+                  color: var(--morgia-green);
+                  font-family: 'Inter', sans-serif;
+                  font-size: 30px;
+                  font-weight: 800;
+                  margin-left: 4px;
+                  letter-spacing: -1.5px;
+                "
+              >
+                DATA
+              </div>
+            </div>
+
+            <div class="header-top">Morgia Soc. Coop. Agr.</div>
+            <div class="header-title">CONTROLLO QUALITA' USCITA</div>
+            <div class="cartellino-box">
+              <span class="cartellino-label"
+                >Spazio riservato a cartellino</span
+              >
+              <img id="preview-img" alt="Anteprima Cartellino" />
+            </div>
+            <table class="info-table">
+              <tr>
+                <td class="label-col">Azienda Agricola</td>
+                <td><input type="text" id="azienda" list="list-aziende" /></td>
+              </tr>
+              <tr>
+                <td class="label-col">Codice Lotto</td>
+                <td>
+                  <input
+                    type="text"
+                    id="lotto"
+                    list="list-lotti"
+                    oninput="controllaLottoInMemoria(this.value)"
+                  />
+                </td>
+              </tr>
+              <tr>
+                <td class="label-col">Prodotto</td>
+                <td>
+                  <input type="text" id="prodotto" list="list-prodotti" />
+                </td>
+              </tr>
+              <tr>
+                <td class="label-col">Varietà</td>
+                <td><input type="text" id="varieta" list="list-varieta" /></td>
+              </tr>
+              <tr>
+                <td class="label-col">Calibro</td>
+                <td><input type="text" id="calibro" list="list-calibri" /></td>
+              </tr>
+            </table>
+            <div class="section-title">Tipo di produzione</div>
+            <div class="prod-type-wrapper">
+              <div class="prod-type-label">Prodotto IGP</div>
+              <div
+                class="prod-type-check"
+                id="check-igp"
+                onclick="toggleCheck(this)"
+              >
+                X
+              </div>
+            </div>
+
+            <div class="quality-tables-wrapper">
+              <table class="quality-table">
+                <tr>
+                  <td class="q-label">Percentuale in succo</td>
+                  <td class="q-val">
+                    <input type="text" id="val-succo" class="param-input" />
+                  </td>
+                </tr>
+                <tr>
+                  <td class="q-label">Percentuale difetto</td>
+                  <td class="q-val">
+                    <input type="text" id="val-difetto" class="param-input" />
+                  </td>
+                </tr>
+                <tr>
+                  <td class="q-label">Grado Brix</td>
+                  <td class="q-val">
+                    <input type="text" id="val-brix" class="param-input" />
+                  </td>
+                </tr>
+                <tr>
+                  <td class="q-label">Colorazione</td>
+                  <td class="q-val">
+                    <input type="text" id="val-colore" class="param-input" />
+                  </td>
+                </tr>
+                <tr>
+                  <td class="q-label">Presenza semi</td>
+                  <td class="q-val">
+                    <input
+                      type="text"
+                      id="val-semi"
+                      class="param-input"
+                      value="Assente"
+                    />
+                  </td>
+                </tr>
+                <tr>
+                  <td class="q-label">Tipologia confezione</td>
+                  <td class="q-val">
+                    <input
+                      type="text"
+                      id="val-confezione"
+                      list="list-confezioni"
+                      class="param-input"
+                      placeholder="Inserisci confezione..."
+                    />
+                  </td>
+                </tr>
+              </table>
+
+              <table class="quality-table">
+                <tr>
+                  <td class="q-label">Forma tipica CV</td>
+                  <td class="q-val">
+                    <input
+                      type="text"
+                      id="val-forma"
+                      class="param-input"
+                      value="ok"
+                    />
+                  </td>
+                </tr>
+                <tr>
+                  <td class="q-label">Assenza calice</td>
+                  <td class="q-val">
+                    <input
+                      type="text"
+                      id="val-calice"
+                      class="param-input"
+                      value="ok"
+                    />
+                  </td>
+                </tr>
+                <tr>
+                  <td class="q-label">Categoria</td>
+                  <td class="q-val">
+                    <input
+                      type="text"
+                      id="val-categoria"
+                      class="param-input"
+                      value="I"
+                    />
+                  </td>
+                </tr>
+                <tr>
+                  <td class="q-label">Tolleranza 10%</td>
+                  <td class="q-val">
+                    <input
+                      type="text"
+                      id="val-tolleranza"
+                      class="param-input"
+                      value="ok"
+                    />
+                  </td>
+                </tr>
+                <tr>
+                  <td class="q-label">Peso</td>
+                  <td class="q-val">
+                    <input type="text" id="val-peso" class="param-input" />
+                  </td>
+                </tr>
+                <tr>
+                  <td class="q-label">Assenza corpi estr.</td>
+                  <td class="q-val">
+                    <input
+                      type="text"
+                      id="val-corpi-estr"
+                      class="param-input"
+                      value="ok"
+                    />
+                  </td>
+                </tr>
+                <tr>
+                  <td class="q-label">Assenza marciume</td>
+                  <td class="q-val">
+                    <input
+                      type="text"
+                      id="val-marciume"
+                      class="param-input"
+                      value="ok"
+                    />
+                  </td>
+                </tr>
+                <tr>
+                  <td class="q-label">Conforme 100%</td>
+                  <td class="q-val">
+                    <input
+                      type="text"
+                      id="val-conforme"
+                      class="param-input"
+                      value="ok"
+                    />
+                  </td>
+                </tr>
+              </table>
+            </div>
+
+            <div class="notes-container">
+              <div class="notes-side-label">NOTE</div>
+              <table class="notes-table">
+                <tr>
+                  <td>
+                    <textarea id="note-text" class="notes-textarea"></textarea>
+                  </td>
+                </tr>
+              </table>
+            </div>
+            <div class="judgment-row">
+              <div class="judgment-title">Giudizio Globale sul frutto</div>
+              <div
+                class="judgment-option selected"
+                onclick="selectJudgment(this)"
+              >
+                OTTIMO
+              </div>
+              <div class="judgment-option" onclick="selectJudgment(this)">
+                BUONO
+              </div>
+              <div class="judgment-option" onclick="selectJudgment(this)">
+                MEDIOCRE
+              </div>
+            </div>
+            <div class="footer-row">
+              <div class="date-block">
+                Data <input type="text" id="data-odierna" class="date-input" />
+              </div>
+              <div class="signature-block">
+                <div class="signature-title">Il Responsabile Magazzino</div>
+                <div class="signature-line"></div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <script>
+      function applicaPermessiProfilo(role) {
+        const navDash = document.getElementById("nav-dash");
+        const navArchive = document.getElementById("nav-archive");
+        const navA4 = document.getElementById("nav-a4");
+        const btnModuloVuoto = document.getElementById("btn-modulo-vuoto");
+
+        if (role === "iolanda") {
+          if (navDash) navDash.style.display = "none";
+          if (navArchive) navArchive.style.display = "none";
+          if (navA4) navA4.style.display = "none";
+          if (btnModuloVuoto) btnModuloVuoto.style.display = "none";
+          switchView("view-new", "nav-new");
+        } else {
+          if (navDash) navDash.style.display = "flex";
+          if (navArchive) navArchive.style.display = "flex";
+          if (navA4) navA4.style.display = "flex";
+          if (btnModuloVuoto) btnModuloVuoto.style.display = "inline-flex";
+          switchView("view-home", "nav-dash");
+        }
+      }
+
+      function handleBrandClick() {
+        const role = sessionStorage.getItem("morgia_user_role") || "admin";
+        if (role === "iolanda") {
+          switchView("view-new", "nav-new");
+        } else {
+          switchView("view-home", "nav-dash");
+        }
+      }
+
+      function checkLoginStatus() {
+        if (sessionStorage.getItem("morgia_logged_in") === "true") {
+          const role = sessionStorage.getItem("morgia_user_role") || "admin";
+          document.getElementById("login-screen").style.display = "none";
+          const app = document.getElementById("app-content");
+          app.style.display = "block";
+          app.classList.add("visible");
+          app.style.transition = "none";
+          applicaPermessiProfilo(role);
+        }
+      }
+
+      function handleLogin(event) {
+        event.preventDefault();
+        const user = document.getElementById("username").value.trim();
+        const pass = document.getElementById("password").value.trim();
+        const userLower = user.toLowerCase();
+
+        let role = null;
+        if (userLower === "luigi" && pass === "Morgia1") {
+          role = "luigi";
+        } else if (userLower === "iolanda" && pass === "Morgia123") {
+          role = "iolanda";
+        }
+
+        if (role) {
+          sessionStorage.setItem("morgia_logged_in", "true");
+          sessionStorage.setItem("morgia_user_role", role);
+          document.getElementById("login-error").style.display = "none";
+          applicaPermessiProfilo(role);
+
+          const loginScreen = document.getElementById("login-screen");
+          loginScreen.style.opacity = "0";
+          loginScreen.style.visibility = "hidden";
+
+          setTimeout(() => {
+            loginScreen.style.display = "none";
+            const app = document.getElementById("app-content");
+            app.style.display = "block";
+            void app.offsetWidth;
+            app.classList.add("visible");
+          }, 600);
+        } else {
+          document.getElementById("login-error").style.display = "block";
+        }
+      }
+
+      function handleLogout() {
+        sessionStorage.removeItem("morgia_logged_in");
+        sessionStorage.removeItem("morgia_user_role");
+        location.reload();
+      }
+
+      // Funzione per gestire i TAB laterali con rispetto dei permessi
+      function switchView(viewId, btnId) {
+        const role = sessionStorage.getItem("morgia_user_role") || "admin";
+        if (role === "iolanda" && viewId !== "view-new") {
+          viewId = "view-new";
+          btnId = "nav-new";
+        }
+
+        document.querySelectorAll(".view-section").forEach((el) => {
+          el.style.display = "none";
+          el.classList.remove("active");
+        });
+
+        const target = document.getElementById(viewId);
+        if (target) {
+          target.style.display = "block";
+          void target.offsetWidth;
+          target.classList.add("active");
+          window.scrollTo({ top: 0, behavior: "smooth" });
+        }
+
+        document
+          .querySelectorAll(".nav-btn")
+          .forEach((el) => el.classList.remove("active"));
+        if (btnId) {
+          const btn = document.getElementById(btnId);
+          if (btn) btn.classList.add("active");
+        }
+      }
+
+      function getTodayISO() {
+        const d = new Date();
+        const yyyy = d.getFullYear();
+        const mm = String(d.getMonth() + 1).padStart(2, "0");
+        const dd = String(d.getDate()).padStart(2, "0");
+        return `${yyyy}-${mm}-${dd}`;
+      }
+      function dateToISO(d) {
+        const yyyy = d.getFullYear();
+        const mm = String(d.getMonth() + 1).padStart(2, "0");
+        const dd = String(d.getDate()).padStart(2, "0");
+        return `${yyyy}-${mm}-${dd}`;
+      }
+      function parseItalianDateToISO(dateStr) {
+        if (!dateStr) return "";
+        const clean = dateStr.trim();
+        if (/^\d{4}-\d{2}-\d{2}$/.test(clean)) return clean;
+        const parts = clean.split(/[\/\-\.]/);
+        if (parts.length === 3) {
+          const dd = parts[0].padStart(2, "0");
+          const mm = parts[1].padStart(2, "0");
+          const yyyy = parts[2].length === 2 ? "20" + parts[2] : parts[2];
+          return `${yyyy}-${mm}-${dd}`;
+        }
+        return "";
+      }
+
+      let activeWeekDateISO = "";
+      function renderV18WeekStrip() {
+        const stripEl = document.getElementById("v18-week-strip");
+        const mem = getMemory();
+
+        const datesWithDocs = new Set(
+          mem.archivioStorico.map(
+            (doc) => doc.dataISO || parseItalianDateToISO(doc.data)
+          )
+        );
+
+        const now = new Date();
+        const monthLabel = now.toLocaleDateString("it-IT", {
+          month: "long",
+          year: "numeric",
+        });
+        document.getElementById("v18-month-label").textContent =
+          monthLabel.charAt(0).toUpperCase() + monthLabel.slice(1);
+
+        const dayOfWeek = (now.getDay() + 6) % 7;
+        const monday = new Date(now);
+        monday.setDate(now.getDate() - dayOfWeek);
+
+        const dayNames = ["Lun", "Mar", "Mer", "Gio", "Ven", "Sab", "Dom"];
+        stripEl.innerHTML = "";
+
+        for (let i = 0; i < 7; i++) {
+          const d = new Date(monday);
+          d.setDate(monday.getDate() + i);
+          const iso = dateToISO(d);
+          const isSelected = activeWeekDateISO
+            ? iso === activeWeekDateISO
+            : iso === getTodayISO();
+          const hasDocs = datesWithDocs.has(iso);
+
+          let classes = "v18-day-pill";
+          if (isSelected) classes += " active-pill";
+          if (hasDocs) classes += " has-docs";
+
+          const pill = document.createElement("div");
+          pill.className = classes;
+          pill.innerHTML = `
+            <span class="w-name">${dayNames[i]}</span>
+            <span class="w-num">${d.getDate()}</span>
+            <div class="day-has-docs-indicator"></div>
+          `;
+
+          pill.onclick = () => {
+            activeWeekDateISO = iso;
+            document.getElementById("filter-date-from").value = iso;
+            document.getElementById("filter-date-to").value = iso;
+            aggiornaStatoChipPeriodo("");
+            renderV18WeekStrip();
+            applicaFiltriArchivio();
+            switchView("view-archive", "nav-archive");
+          };
+          stripEl.appendChild(pill);
+        }
+      }
+
+      const STORAGE_KEY = "morgia_qc_memory_v1";
+      const defaultMemory = {
+        aziende: ["Graziani Francesco"],
+        prodotti: ["Clementine", "Arance", "Limoni"],
+        varieta: [
+          "SPINOSO",
+          "COMUNE",
+          "CAFFIN",
+          "ORONULES",
+          "HERNANDINA",
+          "SRA 63",
+        ],
+        calibri: ["2-3 54/69MM", "1X 63/70MM", "4 50/60MM"],
+        confezioni: [
+          "Retina 1 kg",
+          "Cassetta plastica",
+          "Cartone",
+          "Girsac",
+          "Vassoio",
+        ],
+        lottiMap: {
+          "L 10/24": {
+            azienda: "Graziani Francesco",
+            prodotto: "Clementine",
+            varieta: "SPINOSO",
+            calibro: "2-3 54/69MM",
+          },
+        },
+        archivioStorico: [],
+      };
+
+      function getMemory() {
+        const saved = localStorage.getItem(STORAGE_KEY);
+        if (!saved) {
+          localStorage.setItem(STORAGE_KEY, JSON.stringify(defaultMemory));
+          return defaultMemory;
+        }
+        return JSON.parse(saved);
+      }
+      function saveMemory(mem) {
+        localStorage.setItem(STORAGE_KEY, JSON.stringify(mem));
+        aggiornaUIArchivio();
+        renderV18WeekStrip();
+      }
+
+      function aggiornaStatoChipPeriodo(activeId) {
+        ["chip-all", "chip-today", "chip-7days", "chip-month"].forEach((id) => {
+          const el = document.getElementById(id);
+          if (el) el.classList.toggle("active", id === activeId);
+        });
+      }
+
+      function setPeriodFilter(mode) {
+        const fromInput = document.getElementById("filter-date-from");
+        const toInput = document.getElementById("filter-date-to");
+        const today = new Date();
+        const todayISO = dateToISO(today);
+        activeWeekDateISO = "";
+
+        if (mode === "all") {
+          fromInput.value = "";
+          toInput.value = "";
+          document.getElementById("filter-search").value = "";
+          aggiornaStatoChipPeriodo("chip-all");
+        } else if (mode === "today") {
+          fromInput.value = todayISO;
+          toInput.value = todayISO;
+          activeWeekDateISO = todayISO;
+          aggiornaStatoChipPeriodo("chip-today");
+        } else if (mode === "7days") {
+          const past7 = new Date(today);
+          past7.setDate(today.getDate() - 6);
+          fromInput.value = dateToISO(past7);
+          toInput.value = todayISO;
+          aggiornaStatoChipPeriodo("chip-7days");
+        } else if (mode === "month") {
+          const firstDay = new Date(today.getFullYear(), today.getMonth(), 1);
+          fromInput.value = dateToISO(firstDay);
+          toInput.value = todayISO;
+          aggiornaStatoChipPeriodo("chip-month");
+        }
+        renderV18WeekStrip();
+        applicaFiltriArchivio();
+      }
+
+      function applicaFiltriArchivio() {
+        const mem = getMemory();
+        const fromISO = document.getElementById("filter-date-from").value;
+        const toISO = document.getElementById("filter-date-to").value;
+        const searchTxt = document
+          .getElementById("filter-search")
+          .value.trim()
+          .toLowerCase();
+
+        const risultati = mem.archivioStorico
+          .map((item, originalIndex) => ({ ...item, originalIndex }))
+          .filter((item) => {
+            const itemISO = item.dataISO || parseItalianDateToISO(item.data);
+            if (fromISO && (!itemISO || itemISO < fromISO)) return false;
+            if (toISO && (!itemISO || itemISO > toISO)) return false;
+            if (searchTxt) {
+              const haystack = `${item.lotto || ""} ${item.azienda || ""} ${
+                item.prodotto || ""
+              } ${item.varieta || ""} ${item.calibro || ""}`.toLowerCase();
+              if (!haystack.includes(searchTxt)) return false;
+            }
+            return true;
+          });
+
+        document.getElementById(
+          "filtered-count-label"
+        ).textContent = `${risultati.length} risultati`;
+        const listEl = document.getElementById("archive-list");
+        if (risultati.length === 0) {
+          listEl.innerHTML = `<div style="text-align:center; padding:40px; color:var(--text-dim); font-size:14px; font-weight:600;">Nessun documento trovato per i filtri attivi.</div>`;
+          return;
+        }
+
+        listEl.innerHTML = risultati
+          .map(
+            (item) => `
+          <div class="archive-card-item">
+            <div>
+              <div class="arc-info-title">
+                <span class="arc-lotto-badge">${item.lotto || "N/D"}</span>
+                <span>${item.azienda || "N/D"}</span>
+              </div>
+              <div class="arc-info-sub">🍊 ${item.prodotto || ""} ${
+              item.varieta || ""
+            } • 📅 <strong>${item.data}</strong></div>
+            </div>
+            <div class="arc-actions">
+              <button class="btn-arc-load" onclick="caricaDaArchivio(${
+                item.originalIndex
+              })">🔄 Apri</button>
+              <button class="btn-arc-del" onclick="eliminaDaArchivio(${
+                item.originalIndex
+              })">🗑️</button>
+            </div>
+          </div>
+        `
+          )
+          .join("");
+      }
+
+      function eliminaDaArchivio(index) {
+        const mem = getMemory();
+        mem.archivioStorico.splice(index, 1);
+        saveMemory(mem);
+      }
+
+      function aggiornaUIArchivio() {
+        const mem = getMemory();
+        const popolaDatalist = (id, arr) => {
+          const el = document.getElementById(id);
+          if (el)
+            el.innerHTML = arr.map((v) => `<option value="${v}">`).join("");
+        };
+        popolaDatalist("list-aziende", mem.aziende);
+        popolaDatalist("list-lotti", Object.keys(mem.lottiMap));
+        popolaDatalist("list-prodotti", mem.prodotti);
+        popolaDatalist("list-varieta", mem.varieta);
+        popolaDatalist("list-calibri", mem.calibri);
+        popolaDatalist("list-confezioni", mem.confezioni);
+
+        document.getElementById("count-archivio").textContent =
+          mem.archivioStorico.length;
+        applicaFiltriArchivio();
+      }
+
+      function nuovoDocumentoVuoto() {
+        document.getElementById("azienda").value = "";
+        document.getElementById("lotto").value = "";
+        document.getElementById("prodotto").value = "";
+        document.getElementById("varieta").value = "";
+        document.getElementById("calibro").value = "";
+        document.getElementById("val-confezione").value = "";
+
+        document.getElementById("val-forma").value = "ok";
+        document.getElementById("val-calice").value = "ok";
+        document.getElementById("val-categoria").value = "I";
+        document.getElementById("val-tolleranza").value = "ok";
+        document.getElementById("val-peso").value = "";
+        document.getElementById("val-corpi-estr").value = "ok";
+        document.getElementById("val-marciume").value = "ok";
+        document.getElementById("val-conforme").value = "ok";
+
+        document.getElementById("note-text").value = "";
+        document.getElementById("preview-img").style.display = "none";
+        document.getElementById("data-odierna").value =
+          new Date().toLocaleDateString("it-IT");
+        generaValoriRandom();
+
+        switchView("view-a4", "nav-a4");
+        setTimeout(() => document.getElementById("azienda").focus(), 300);
+      }
+
+      function calcolaSomiglianza(s1, s2) {
+        s1 = s1.toLowerCase().replace(/[^a-z0-9]/g, "");
+        s2 = s2.toLowerCase().replace(/[^a-z0-9]/g, "");
+        if (!s1 || !s2) return 0;
+        if (s1 === s2) return 1;
+        if (s2.includes(s1) && s1.length >= 4) return 0.85;
+        const track = Array(s2.length + 1)
+          .fill(null)
+          .map(() => Array(s1.length + 1).fill(null));
+        for (let i = 0; i <= s1.length; i++) track[0][i] = i;
+        for (let j = 0; j <= s2.length; j++) track[j][0] = j;
+        for (let j = 1; j <= s2.length; j++) {
+          for (let i = 1; i <= s1.length; i++) {
+            const indicator = s1[i - 1] === s2[j - 1] ? 0 : 1;
+            track[j][i] = Math.min(
+              track[j][i - 1] + 1,
+              track[j - 1][i] + 1,
+              track[j - 1][i - 1] + indicator
+            );
+          }
+        }
+        return 1 - track[s2.length][s1.length] / Math.max(s1.length, s2.length);
+      }
+
+      function autoCorreggiConMemoria(val, lista, soglia = 0.55) {
+        if (!val) return "";
+        let best = val,
+          bestScore = 0;
+        for (const v of lista) {
+          const s = calcolaSomiglianza(val, v);
+          if (s > bestScore && s >= soglia) {
+            bestScore = s;
+            best = v;
+          }
+        }
+        return best;
+      }
+
+      function controllaLottoInMemoria(lottoVal) {
+        const mem = getMemory();
+        const key = lottoVal.trim().toUpperCase();
+        if (mem.lottiMap[key]) {
+          const d = mem.lottiMap[key];
+          if (!document.getElementById("azienda").value)
+            document.getElementById("azienda").value = d.azienda;
+          if (!document.getElementById("prodotto").value)
+            document.getElementById("prodotto").value = d.prodotto;
+          if (!document.getElementById("varieta").value)
+            document.getElementById("varieta").value = d.varieta;
+          if (!document.getElementById("calibro").value)
+            document.getElementById("calibro").value = d.calibro;
+        }
+      }
+
+      function salvaDocumentoInArchivio() {
+        const mem = getMemory();
+        const azienda = document.getElementById("azienda").value.trim();
+        const lotto = document
+          .getElementById("lotto")
+          .value.trim()
+          .toUpperCase();
+        const prodotto = document.getElementById("prodotto").value.trim();
+        const varieta = document
+          .getElementById("varieta")
+          .value.trim()
+          .toUpperCase();
+        const calibro = document
+          .getElementById("calibro")
+          .value.trim()
+          .toUpperCase();
+        const confezione = document
+          .getElementById("val-confezione")
+          .value.trim();
+        const dataCampo =
+          document.getElementById("data-odierna").value.trim() ||
+          new Date().toLocaleDateString("it-IT");
+
+        if (azienda && !mem.aziende.includes(azienda))
+          mem.aziende.push(azienda);
+        if (prodotto && !mem.prodotti.includes(prodotto))
+          mem.prodotti.push(prodotto);
+        if (varieta && !mem.varieta.includes(varieta))
+          mem.varieta.push(varieta);
+        if (calibro && !mem.calibri.includes(calibro))
+          mem.calibri.push(calibro);
+        if (confezione && !mem.confezioni.includes(confezione))
+          mem.confezioni.push(confezione);
+        if (lotto)
+          mem.lottiMap[lotto] = { azienda, prodotto, varieta, calibro };
+
+        mem.archivioStorico.unshift({
+          id: Date.now(),
+          data: dataCampo,
+          dataISO: parseItalianDateToISO(dataCampo) || getTodayISO(),
+          ora: new Date().toLocaleTimeString("it-IT", {
+            hour: "2-digit",
+            minute: "2-digit",
+          }),
+          azienda,
+          lotto,
+          prodotto,
+          varieta,
+          calibro,
+          succo: document.getElementById("val-succo").value,
+          difetto: document.getElementById("val-difetto").value,
+          brix: document.getElementById("val-brix").value,
+          colore: document.getElementById("val-colore").value,
+          semi: document.getElementById("val-semi").value,
+          confezione,
+          forma: document.getElementById("val-forma").value,
+          calice: document.getElementById("val-calice").value,
+          categoria: document.getElementById("val-categoria").value,
+          tolleranza: document.getElementById("val-tolleranza").value,
+          peso: document.getElementById("val-peso").value,
+          corpi_estr: document.getElementById("val-corpi-estr").value,
+          marciume: document.getElementById("val-marciume").value,
+          conforme: document.getElementById("val-conforme").value,
+          note: document.getElementById("note-text").value,
+        });
+
+        saveMemory(mem);
+      }
+
+      function salvaEStampa() {
+        salvaDocumentoInArchivio();
+        document.getElementById("status-msg").textContent =
+          "💾 Salvato! Avvio stampa...";
+        setTimeout(() => window.print(), 250);
+      }
+
+      function caricaDaArchivio(index) {
+        const mem = getMemory();
+        const item = mem.archivioStorico[index];
+        if (!item) return;
+        document.getElementById("azienda").value = item.azienda || "";
+        document.getElementById("lotto").value = item.lotto || "";
+        document.getElementById("prodotto").value = item.prodotto || "";
+        document.getElementById("varieta").value = item.varieta || "";
+        document.getElementById("calibro").value = item.calibro || "";
+
+        document.getElementById("val-succo").value = item.succo || "";
+        document.getElementById("val-difetto").value = item.difetto || "";
+        document.getElementById("val-brix").value = item.brix || "";
+        document.getElementById("val-colore").value = item.colore || "";
+        document.getElementById("val-semi").value = item.semi || "Assente";
+        document.getElementById("val-confezione").value = item.confezione || "";
+
+        document.getElementById("val-forma").value = item.forma || "ok";
+        document.getElementById("val-calice").value = item.calice || "ok";
+        document.getElementById("val-categoria").value = item.categoria || "I";
+        document.getElementById("val-tolleranza").value =
+          item.tolleranza || "ok";
+        document.getElementById("val-peso").value = item.peso || "";
+        document.getElementById("val-corpi-estr").value =
+          item.corpi_estr || "ok";
+        document.getElementById("val-marciume").value = item.marciume || "ok";
+        document.getElementById("val-conforme").value = item.conforme || "ok";
+
+        document.getElementById("note-text").value = item.note || "";
+        if (item.data)
+          document.getElementById("data-odierna").value = item.data;
+
+        switchView("view-a4", "nav-a4");
+      }
+
+      function randomInt(min, max) {
+        return Math.floor(Math.random() * (max - min + 1)) + min;
+      }
+      function generaValoriRandom() {
+        document.getElementById("val-succo").value = randomInt(43, 54) + "%";
+        document.getElementById("val-difetto").value = randomInt(0, 1) + "%";
+        document.getElementById("val-brix").value = randomInt(10, 15);
+        document.getElementById("val-colore").value = randomInt(90, 100) + "%";
+        document.getElementById("val-semi").value = "Assente";
+
+        document.getElementById("val-forma").value = "ok";
+        document.getElementById("val-calice").value = "ok";
+        document.getElementById("val-categoria").value = "I";
+        document.getElementById("val-tolleranza").value = "ok";
+        document.getElementById("val-peso").value = randomInt(5, 20) + " kg";
+        document.getElementById("val-corpi-estr").value = "ok";
+        document.getElementById("val-marciume").value = "ok";
+        document.getElementById("val-conforme").value = "ok";
+      }
+
+      function toggleCheck(el) {
+        el.textContent = el.textContent === "X" ? "" : "X";
+      }
+      function selectJudgment(el) {
+        document
+          .querySelectorAll(".judgment-option")
+          .forEach((opt) => opt.classList.remove("selected"));
+        el.classList.add("selected");
+      }
+
+      function preprocessImage(file) {
+        return new Promise((resolve) => {
+          const img = new Image();
+          img.onload = () => {
+            const canvas = document.createElement("canvas");
+            const ctx = canvas.getContext("2d");
+            let w = img.width,
+              h = img.height;
+            const maxDim = 1800;
+            if (w > maxDim || h > maxDim) {
+              if (w > h) {
+                h = Math.round((h * maxDim) / w);
+                w = maxDim;
+              } else {
+                w = Math.round((w * maxDim) / h);
+                h = maxDim;
+              }
+            }
+            canvas.width = w;
+            canvas.height = h;
+            ctx.drawImage(img, 0, 0, w, h);
+            const imgData = ctx.getImageData(0, 0, w, h);
+            const d = imgData.data;
+            for (let i = 0; i < d.length; i += 4) {
+              const gray = 0.299 * d[i] + 0.587 * d[i + 1] + 0.114 * d[i + 2];
+              const contrasted =
+                gray < 145
+                  ? Math.max(0, gray * 0.6)
+                  : Math.min(255, gray * 1.25);
+              d[i] = d[i + 1] = d[i + 2] = contrasted;
+            }
+            ctx.putImageData(imgData, 0, 0);
+            resolve(canvas.toDataURL("image/jpeg", 0.92));
+          };
+          img.src = URL.createObjectURL(file);
+        });
+      }
+
+      const cameraInput = document.getElementById("camera-input");
+      const previewImg = document.getElementById("preview-img");
+      const statusMsg = document.getElementById("status-msg");
+
+      cameraInput.addEventListener("change", async (e) => {
+        const file = e.target.files[0];
+        if (!file) return;
+        previewImg.src = URL.createObjectURL(file);
+        previewImg.style.display = "block";
+        generaValoriRandom();
+        statusMsg.textContent =
+          "⏳ Analisi OCR in corso e confronto con archivio...";
+
+        const role = sessionStorage.getItem("morgia_user_role") || "admin";
+
+        try {
+          const processedDataUrl = await preprocessImage(file);
+          const result = await Tesseract.recognize(processedDataUrl, "ita", {
+            logger: (m) => {
+              if (m.status === "recognizing text")
+                statusMsg.textContent = `⏳ Lettura OCR Etichetta: ${Math.round(
+                  m.progress * 100
+                )}%`;
+            },
+          });
+          estraiECorreggiConMemoria(result.data.text);
+          if (role === "iolanda") {
+            salvaDocumentoInArchivio();
+            statusMsg.textContent =
+              "✅ Etichetta letta e salvata automaticamente in archivio!";
+          } else {
+            switchView("view-a4", "nav-a4");
+          }
+        } catch (err) {
+          console.error(err);
+          statusMsg.textContent = "⚠️ Errore OCR. Riprova a scattare la foto.";
+          if (role !== "iolanda") {
+            switchView("view-a4", "nav-a4");
+          }
+        }
+      });
+
+      function estraiECorreggiConMemoria(rawText) {
+        const mem = getMemory();
+        const text = rawText.replace(/\r/g, "");
+        let aziendaLetta = "",
+          lottoLetto = "",
+          prodottoLetto = "",
+          varietaLetta = "",
+          calibroLetto = "";
+
+        const lottoMatch =
+          text.match(
+            /L[O0]TT[O0]\s*(?:N\.?|NUM\.?)?\s*[:.;\-]?\s*(L?\s*\d{1,4}\s*[\/\-]\s*\d{1,4})/i
+          ) || text.match(/\b(L\s*\d{1,4}\s*[\/\-]\s*\d{1,4})\b/i);
+        if (lottoMatch)
+          lottoLetto = lottoMatch[1]
+            .toUpperCase()
+            .replace(/^L\s*/, "L ")
+            .trim();
+
+        const prodMatch = text.match(
+          /(?:PRODUTTORE|PR0DUTT0RE|UTTORE)\s*[:.;\-]?\s*([^\n]+)/i
+        );
+        if (prodMatch)
+          aziendaLetta = prodMatch[1]
+            .replace(/COLTIVATO.*/i, "")
+            .replace(/^[:.;\-\s]+/, "")
+            .trim();
+        for (const az of mem.aziende) {
+          if (
+            az.split(" ")[0].length >= 4 &&
+            new RegExp(az.split(" ")[0].slice(0, 5), "i").test(text)
+          ) {
+            aziendaLetta = az;
+            break;
+          }
+        }
+
+        const prodTipoMatch = text.match(
+          /PR[O0]D[O0]TT[O0]\s*[:.;\-]?\s*([A-Za-zÀ-ÿ]+)/i
+        );
+        if (prodTipoMatch) prodottoLetto = prodTipoMatch[1].trim();
+        else if (/CLEMENTIN/i.test(text)) prodottoLetto = "Clementine";
+
+        const varMatch = text.match(/VARIET[AÀ'’]*\s*[:.;\-'’]?\s*([^\n]+)/i);
+        if (varMatch)
+          varietaLetta = varMatch[1]
+            .replace(/PRODUTTORE.*|CATEGORIA.*/i, "")
+            .replace(/^[^A-Za-z0-9]+/, "")
+            .trim();
+
+        const calDirect = text.match(
+          /(\d[\-\/]\d\s+\d{2}[\/\-]\d{2}\s*[MNH]{1,2})/i
+        );
+        const calLabel = text.match(/CALIBR[O0]\s*[:.;\-]?\s*([^\n]+)/i);
+        if (calDirect)
+          calibroLetto = calDirect[1]
+            .toUpperCase()
+            .replace(/[NH]{1,2}$/, "MM")
+            .trim();
+        else if (calLabel)
+          calibroLetto = calLabel[1]
+            .split(/ORIGINE|PESO/i)[0]
+            .replace(/^[:.;\-\s]+/, "")
+            .trim();
+
+        if (aziendaLetta)
+          aziendaLetta = autoCorreggiConMemoria(aziendaLetta, mem.aziende, 0.5);
+        if (prodottoLetto)
+          prodottoLetto = autoCorreggiConMemoria(
+            prodottoLetto,
+            mem.prodotti,
+            0.5
+          );
+        if (varietaLetta)
+          varietaLetta = autoCorreggiConMemoria(
+            varietaLetta,
+            mem.varieta,
+            0.45
+          );
+        if (calibroLetto)
+          calibroLetto = autoCorreggiConMemoria(calibroLetto, mem.calibri, 0.6);
+
+        if (lottoLetto && mem.lottiMap[lottoLetto]) {
+          const d = mem.lottiMap[lottoLetto];
+          if (!aziendaLetta) aziendaLetta = d.azienda;
+          if (!prodottoLetto) prodottoLetto = d.prodotto;
+          if (!varietaLetto) varietaLetta = d.varieta;
+          if (!calibroLetto) calibroLetto = d.calibro;
+        }
+
+        document.getElementById("azienda").value = aziendaLetta;
+        document.getElementById("lotto").value = lottoLetto;
+        document.getElementById("prodotto").value = prodottoLetto;
+        document.getElementById("varieta").value = varietaLetta;
+        document.getElementById("calibro").value = calibroLetto;
+        document.getElementById("check-igp").textContent = "X";
+        statusMsg.textContent = "✅ Etichetta letta e compilata!";
+      }
+
+      window.onload = () => {
+        checkLoginStatus();
+        document.getElementById("data-odierna").value =
+          new Date().toLocaleDateString("it-IT");
+        generaValoriRandom();
+        renderV18WeekStrip();
+        aggiornaUIArchivio();
+      };
+    </script>
+  </body>
+</html>
